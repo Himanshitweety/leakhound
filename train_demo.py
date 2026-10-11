@@ -13,11 +13,19 @@ from sklearn.preprocessing import OneHotEncoder
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("csv_path")
+    parser.add_argument("--drop", default=None, help="column to remove from the features")
     args = parser.parse_args()
 
     data = pd.read_csv(args.csv_path)
     target = data["Churn"]
     features = data.drop(columns="Churn")
+
+    
+    if args.drop:
+        if args.drop not in features.columns:
+            raise SystemExit(f"error: column '{args.drop}' not found")
+        features = features.drop(columns=args.drop)
+
 
     text_columns = features.select_dtypes(
         include=["object", "string", "category"]
