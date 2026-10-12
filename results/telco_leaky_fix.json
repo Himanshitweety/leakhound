@@ -1,0 +1,14 @@
+{
+  "fixed_file": "data\\telco_leaky_fixed.csv",
+  "removed_column": "cancellation_reason",
+  "reported_accuracy": 0.9972,
+  "honest_accuracy": 0.78,
+  "checks": {
+    "column_removed": true,
+    "fixed_accuracy": 0.78,
+    "matches_honest_score": true,
+    "top_single_column_accuracy_after_fix": 0.7527,
+    "no_suspect_left": true
+  },
+  "fix_verified": true
+}
