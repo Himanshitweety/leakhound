@@ -570,7 +570,18 @@ def main():
             "largest_drop_points": largest_drop_points,
         }
         _write_report(args.csv_path, report)
+    except Exception as error:
+        _write_report(args.csv_path, {
+            "verdict": "needs_human",
+            "suspect_column": None,
+            "explanation": "The audit could not finish, so no conclusion is given.",
+            "error": f"{type(error).__name__}: {str(error)[:300]}",
+            "reported_accuracy": None,
+            "honest_accuracy": None,
+            "accuracy_drop_points": None,
+        })
     finally:
+
         try:
             if audit_span_entered:
                 audit_span.__exit__(*sys.exc_info())
