@@ -10,23 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("csv_path")
-    parser.add_argument("--drop", default=None, help="column to remove from the features")
-    args = parser.parse_args()
-
-    data = pd.read_csv(args.csv_path)
-    target = data["Churn"]
-    features = data.drop(columns="Churn")
-
-    
-    if args.drop:
-        if args.drop not in features.columns:
-            raise SystemExit(f"error: column '{args.drop}' not found")
-        features = features.drop(columns=args.drop)
-
-
+def build_model(features):
     text_columns = features.select_dtypes(
         include=["object", "string", "category"]
     ).columns
@@ -51,12 +35,33 @@ def main():
             ),
         ]
     )
-    model = Pipeline(
+    return Pipeline(
         steps=[
             ("preprocessor", preprocessor),
             ("classifier", RandomForestClassifier(random_state=42)),
         ]
     )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("csv_path")
+    parser.add_argument("--target", default="Churn", help="target column")
+    parser.add_argument("--drop", default=None, help="column to remove from the features")
+    args = parser.parse_args()
+
+    data = pd.read_csv(args.csv_path)
+    if args.target not in data.columns:
+        raise SystemExit(f"error: target column '{args.target}' not found")
+    target = data[args.target]
+    features = data.drop(columns=args.target)
+
+    
+    if args.drop:
+        if args.drop not in features.columns:
+            raise SystemExit(f"error: column '{args.drop}' not found")
+        features = features.drop(columns=args.drop)
+
 
     x_train, x_test, y_train, y_test = train_test_split(
         features,
@@ -65,6 +70,7 @@ def main():
         random_state=42,
         stratify=target,
     )
+    model = build_model(x_train)
     model.fit(x_train, y_train)
     accuracy = accuracy_score(y_test, model.predict(x_test))
     print(f"accuracy: {accuracy:.4f}")
