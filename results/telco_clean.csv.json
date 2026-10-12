@@ -1,0 +1,81 @@
+{
+  "verdict": "no_column_leak_found",
+  "suspect_column": null,
+  "evidence": [
+    {
+      "tool": "run_training",
+      "accuracy": 0.78,
+      "dropped": null
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "tenure",
+      "single_column_accuracy": 0.7527,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "gender",
+      "single_column_accuracy": 0.7346,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "SeniorCitizen",
+      "single_column_accuracy": 0.7346,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "Partner",
+      "single_column_accuracy": 0.7346,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "Dependents",
+      "single_column_accuracy": 0.7346,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.7644,
+      "dropped": "tenure"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.7786,
+      "dropped": "gender"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.785,
+      "dropped": "SeniorCitizen"
+    }
+  ],
+  "explanation": "No tested column removal lowered accuracy by at least 5 points; 3 columns were checked. This does not rule out leakage in untested columns or other forms of leakage.",
+  "reported_accuracy": 0.78,
+  "honest_accuracy": null,
+  "accuracy_drop_points": null,
+  "tool_calls_used": 5,
+  "checks_run": [
+    "single-column scan",
+    "drop-and-retrain"
+  ],
+  "largest_drop_points": 1.56
+}

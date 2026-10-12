@@ -1,0 +1,71 @@
+{
+  "verdict": "leak_confirmed",
+  "suspect_column": "cancellation_reason",
+  "evidence": [
+    {
+      "tool": "run_training",
+      "accuracy": 0.9972,
+      "dropped": null
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "cancellation_reason",
+      "single_column_accuracy": 1.0,
+      "missing_rate_by_class": {
+        "No": 1.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "tenure",
+      "single_column_accuracy": 0.7527,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "gender",
+      "single_column_accuracy": 0.7346,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "SeniorCitizen",
+      "single_column_accuracy": 0.7346,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "Partner",
+      "single_column_accuracy": 0.7346,
+      "missing_rate_by_class": {
+        "No": 0.0,
+        "Yes": 0.0
+      }
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.78,
+      "dropped": "cancellation_reason"
+    }
+  ],
+  "explanation": "Column cancellation_reason is empty for every customer who stayed, and dropping it lowers accuracy by 21.72 points. The column's relationship to the outcome is established by these checks; it is likely to reflect target-related information, but when or how it was recorded is not established.",
+  "reported_accuracy": 0.9972,
+  "honest_accuracy": 0.78,
+  "accuracy_drop_points": 21.72,
+  "tool_calls_used": 3,
+  "checks_run": [
+    "single-column scan",
+    "drop-and-retrain"
+  ],
+  "largest_drop_points": 21.72
+}

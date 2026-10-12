@@ -1,0 +1,29 @@
+{
+  "data/telco_leaky.csv": {
+    "verdicts": {
+      "leak_confirmed": 3
+    },
+    "tool_calls_mean": 3,
+    "tool_calls_min_max": [
+      3,
+      3
+    ],
+    "honest_accuracy_values": [
+      0.78,
+      0.78,
+      0.78
+    ]
+  },
+  "data/telco_clean.csv": {
+    "verdicts": {
+      "no_column_leak_found": 2,
+      "ERROR": 1
+    },
+    "tool_calls_mean": 5,
+    "tool_calls_min_max": [
+      5,
+      5
+    ],
+    "honest_accuracy_values": []
+  }
+}
