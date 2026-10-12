@@ -1,0 +1,7 @@
+pandas
+scikit-learn
+google-genai
+neatlogs
+python-dotenv
+gradio
+pytest
