@@ -11,12 +11,18 @@ from google import genai
 from google.genai import types
 
 import neatlogs
-from tools import run_training, scan_suspect_columns
+from tools import (
+    check_split_duplicates,
+    run_training,
+    scan_suspect_columns,
+)
 
 
 MAX_TOOL_STEPS = 8
 MAX_RETRIES = 3
 LEAK_ACCURACY_DROP = 0.05
+DUPLICATE_FRACTION_THRESHOLD = 0.02
+DUPLICATE_ACCURACY_DROP = 0.02
 MAX_UNCONFIRMED_SUSPECTS = 3
 
 TOOL_DECLARATIONS = [
@@ -40,8 +46,24 @@ TOOL_DECLARATIONS = [
             "properties": {
                 "csv_path": {"type": "string"},
                 "drop": {"type": "string"},
+                "target": {"type": "string"},
             },
-            "required": ["csv_path", "drop"],
+            "required": ["csv_path", "drop", "target"],
+        },
+    },
+    {
+        "name": "check_split_duplicates",
+        "description": (
+            "Measure test rows duplicated in training and accuracy after "
+            "excluding them."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "csv_path": {"type": "string"},
+                "target": {"type": "string"},
+            },
+            "required": ["csv_path", "target"],
         },
     },
 ]
@@ -116,7 +138,8 @@ def _without_accuracy_claims(text):
 def _tool_cache_key(name, arguments):
     argument_names = {
         "scan_suspect_columns": ("csv_path", "target"),
-        "run_training": ("csv_path", "drop"),
+        "run_training": ("csv_path", "drop", "target"),
+        "check_split_duplicates": ("csv_path", "target"),
     }.get(name, tuple(sorted(arguments)))
     normalized = {key: arguments.get(key) for key in argument_names}
     return json.dumps([name, normalized], sort_keys=True, separators=(",", ":"))
@@ -131,15 +154,16 @@ def _write_report(csv_path, report):
         encoding="utf-8",
     )
     print(json.dumps(report, indent=2, ensure_ascii=False))
+    return report
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Audit an ML result for possible target leakage."
     )
     parser.add_argument("csv_path")
     parser.add_argument("--target", default="Churn")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     load_dotenv()
     neatlogs.init(
@@ -170,10 +194,10 @@ def main():
         @neatlogs.span(
             kind="TOOL", name="run_training", tool_name="run_training"
         )
-        def training_tool(csv_path, drop=None):
+        def training_tool(csv_path, drop=None, target="Churn"):
             if drop is None:
-                return run_training(csv_path)
-            return run_training(csv_path, drop=drop)
+                return run_training(csv_path, target=target)
+            return run_training(csv_path, drop=drop, target=target)
 
         @neatlogs.span(
             kind="TOOL",
@@ -183,6 +207,14 @@ def main():
         def scan_tool(csv_path, target):
             return scan_suspect_columns(csv_path, target)
 
+        @neatlogs.span(
+            kind="TOOL",
+            name="check_split_duplicates",
+            tool_name="check_split_duplicates",
+        )
+        def duplicate_tool(csv_path, target):
+            return check_split_duplicates(csv_path, target)
+
         @neatlogs.span(kind="TOOL", tool_name="cached_tool_call")
         def cached_tool_result(result):
             return {
@@ -190,7 +222,7 @@ def main():
                 "note": "This exact tool call was already done; returning the cached result.",
             }
 
-        baseline = training_tool(args.csv_path)
+        baseline = training_tool(args.csv_path, target=args.target)
         tool_results = [{"tool": "run_training", "result": baseline}]
         candidates = {}
         tested_columns = set()
@@ -215,8 +247,9 @@ def main():
                             f"CSV path: {args.csv_path!r}; target: {args.target!r}. "
                             "The code reproduced the baseline training result; "
                             f"result: {json.dumps(baseline, default=str)}. "
-                            "Choose exactly one available tool per step. First scan "
-                            "for suspect columns, then test promising columns by "
+                            "Choose exactly one available tool per step. First "
+                            "check for train/test duplicate rows and scan for "
+                            "suspect columns, then test promising columns by "
                             "retraining without them. Accuracy drops are measured "
                             "in absolute points; do not conclude leak_confirmed "
                             "unless a tested feature lowers accuracy by at least "
@@ -296,7 +329,10 @@ def main():
                     tool_results.append({"tool": call.name, "result": result})
                 elif call.name == "run_training":
                     column = call_args.get("drop")
-                    if call_args.get("csv_path") != args.csv_path:
+                    if (
+                        call_args.get("csv_path") != args.csv_path
+                        or call_args.get("target") != args.target
+                    ):
                         result = {
                             "ok": False,
                             "error": "Tool arguments do not match the audit input.",
@@ -307,7 +343,9 @@ def main():
                             "error": "Scan for a candidate column before testing it.",
                         }
                     else:
-                        result = training_tool(args.csv_path, drop=column)
+                        result = training_tool(
+                            args.csv_path, drop=column, target=args.target
+                        )
                         if isinstance(result, dict) and result.get("ok"):
                             tested_columns.add(column)
                             if "drop-and-retrain" not in checks_run:
@@ -321,6 +359,30 @@ def main():
                             ):
                                 verdict = "leak_confirmed"
                                 suspect_column = column
+                    tool_results.append({"tool": call.name, "result": result})
+                elif call.name == "check_split_duplicates":
+                    if (
+                        call_args.get("csv_path") != args.csv_path
+                        or call_args.get("target") != args.target
+                    ):
+                        result = {
+                            "ok": False,
+                            "error": "Tool arguments do not match the audit input.",
+                        }
+                    else:
+                        result = {
+                            "ok": True,
+                            **duplicate_tool(args.csv_path, args.target),
+                        }
+                        if "split-duplicate check" not in checks_run:
+                            checks_run.append("split-duplicate check")
+                        fraction = result["duplicate_fraction_of_test"]
+                        accuracy_drop = result["accuracy_drop"]
+                        if (
+                            fraction > DUPLICATE_FRACTION_THRESHOLD
+                            and accuracy_drop >= DUPLICATE_ACCURACY_DROP
+                        ):
+                            verdict = "duplicate_leak_confirmed"
                     tool_results.append({"tool": call.name, "result": result})
                 else:
                     result = {"ok": False, "error": "Unknown tool."}
@@ -341,7 +403,7 @@ def main():
                     ],
                 )
             )
-            if verdict == "leak_confirmed":
+            if verdict in ("leak_confirmed", "duplicate_leak_confirmed"):
                 break
 
             successful_no_drop_tests = {
@@ -383,6 +445,7 @@ def main():
                         "type": "STRING",
                         "enum": [
                             "leak_confirmed",
+                            "duplicate_leak_confirmed",
                             "no_column_leak_found",
                             "needs_human",
                         ],
@@ -402,13 +465,17 @@ def main():
         final_prompt = (
             "Write the final JSON report with keys verdict, suspect_column, "
             "evidence, and explanation. Use only verdicts leak_confirmed, "
-            "no_column_leak_found, or needs_human. State only what the tool "
+            "duplicate_leak_confirmed, no_column_leak_found, or needs_human. "
+            "State only what the tool "
             "results prove. Mark any claim about timing or cause as 'likely'; "
             "do not state timing or cause as fact. If scan evidence shows a "
             "column is missing for every No-target row and its removal lowers "
             "accuracy, say so explicitly. leak_confirmed is permitted only "
             "when code-computed retraining lowers baseline accuracy by at least "
-            "0.05. If evidence is unclear, use needs_human. Accuracy values "
+            "0.05. duplicate_leak_confirmed is permitted only when more than "
+            "2% of test rows duplicate training rows and excluding those rows "
+            "lowers accuracy by at least 0.02. If evidence is unclear, use "
+            "needs_human. Accuracy values "
             "will be inserted by code. Consider these tool results:\n"
             f"{json.dumps(tool_results, default=str)}"
         )
@@ -491,11 +558,37 @@ def main():
                         "dropped": result["dropped"],
                     }
                 )
+            elif entry.get("tool") == "check_split_duplicates" and isinstance(
+                result, dict
+            ) and result.get("ok"):
+                evidence.append(
+                    {
+                        "tool": "check_split_duplicates",
+                        "duplicate_count": result["duplicate_count"],
+                        "duplicate_fraction_of_test": result[
+                            "duplicate_fraction_of_test"
+                        ],
+                        "baseline_accuracy": result["baseline_accuracy"],
+                        "honest_accuracy": result["honest_accuracy"],
+                        "accuracy_drop": result["accuracy_drop"],
+                        "interpretation": "measured on this split",
+                    }
+                )
             elif isinstance(result, dict) and not result.get("ok"):
                 evidence.append(
                     {"tool": entry.get("tool"), "error": result.get("error")}
                 )
 
+        duplicate_result = next(
+            (
+                entry["result"]
+                for entry in tool_results
+                if entry.get("tool") == "check_split_duplicates"
+                and isinstance(entry.get("result"), dict)
+                and entry["result"].get("ok")
+            ),
+            None,
+        )
         if verdict == "leak_confirmed":
             honest_accuracy = drop_results[suspect_column]
             accuracy_drop_points = round(
@@ -520,6 +613,19 @@ def main():
                     "that the column carries target-related information, but "
                     "these checks do not establish its cause or timing."
                 )
+        elif verdict == "duplicate_leak_confirmed":
+            honest_accuracy = duplicate_result["honest_accuracy"]
+            accuracy_drop_points = round(
+                (baseline_accuracy - honest_accuracy) * 100, 4
+            )
+            explanation = (
+                f"{duplicate_result['duplicate_count']} test rows "
+                f"({duplicate_result['duplicate_fraction_of_test']:.1%}) have "
+                "feature rows also present in training. Evaluating only test "
+                f"rows not found in training lowers accuracy from "
+                f"{baseline_accuracy:.4f} to {honest_accuracy:.4f}; this "
+                "measured split meets the duplicate-leak threshold."
+            )
         elif verdict == "no_column_leak_found":
             tested_count = len(drop_results)
             explanation = (
@@ -554,7 +660,7 @@ def main():
             if drop_results and baseline_accuracy is not None
             else None
         )
-        if verdict != "leak_confirmed":
+        if verdict not in ("leak_confirmed", "duplicate_leak_confirmed"):
             honest_accuracy = None
             accuracy_drop_points = None
         report = {
@@ -569,13 +675,14 @@ def main():
             "checks_run": checks_run,
             "largest_drop_points": largest_drop_points,
         }
-        _write_report(args.csv_path, report)
+        return _write_report(args.csv_path, report)
     except Exception as error:
-        _write_report(args.csv_path, {
+        return _write_report(args.csv_path, {
             "verdict": "needs_human",
             "suspect_column": None,
             "explanation": "The audit could not finish, so no conclusion is given.",
             "error": f"{type(error).__name__}: {str(error)[:300]}",
+            "error_status": _http_status(error),
             "reported_accuracy": None,
             "honest_accuracy": None,
             "accuracy_drop_points": None,
