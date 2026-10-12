@@ -1,0 +1,75 @@
+{
+  "verdict": "no_leak",
+  "suspect_column": null,
+  "evidence": [
+    {
+      "model_assessment": "Evaluating model runs with suspect columns individually dropped showed that none caused a substantial decrease in performance compared to the baseline model."
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.78,
+      "dropped": null
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "tenure",
+      "single_column_accuracy": 0.7527
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "gender",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "SeniorCitizen",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "Partner",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "Dependents",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.7644,
+      "dropped": "tenure"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.7786,
+      "dropped": "gender"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.785,
+      "dropped": "SeniorCitizen"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.7842,
+      "dropped": "Partner"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.78,
+      "dropped": "Dependents"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.7644,
+      "dropped": "tenure"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.7644,
+      "dropped": "tenure"
+    }
+  ],
+  "explanation": "Testing identified no column whose removal resulted in the required drop in model performance to confirm a target leak, and single column distributions show normal predictive power."
+}

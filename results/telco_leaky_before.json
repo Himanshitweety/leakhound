@@ -1,0 +1,95 @@
+{
+  "verdict": "leak_confirmed",
+  "suspect_column": "cancellation_reason",
+  "evidence": [
+    {
+      "model_assessment": "The column cancellation_reason is missing exclusively for non-churned customers and present for churned customers, completely separating the target classes. Furthermore, removing this feature results in a substantial decrease in model performance compared to the baseline model."
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.9972,
+      "dropped": null
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "cancellation_reason",
+      "single_column_accuracy": 1.0
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "tenure",
+      "single_column_accuracy": 0.7527
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "gender",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "SeniorCitizen",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "Partner",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.78,
+      "dropped": "cancellation_reason"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.9979,
+      "dropped": "tenure"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 1.0,
+      "dropped": "gender"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.9979,
+      "dropped": "SeniorCitizen"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.9986,
+      "dropped": "Partner"
+    },
+    {
+      "tool": "run_training",
+      "accuracy": 0.78,
+      "dropped": "cancellation_reason"
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "cancellation_reason",
+      "single_column_accuracy": 1.0
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "tenure",
+      "single_column_accuracy": 0.7527
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "gender",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "SeniorCitizen",
+      "single_column_accuracy": 0.7346
+    },
+    {
+      "tool": "scan_suspect_columns",
+      "column": "Partner",
+      "single_column_accuracy": 0.7346
+    }
+  ],
+  "explanation": "The cancellation_reason feature records information generated after the cancellation event occurs, directly revealing the churn outcome. Removing it eliminates the target leakage and causes the model to rely solely on valid pre-churn predictive features."
+}
