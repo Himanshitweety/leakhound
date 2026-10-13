@@ -94,17 +94,3 @@ Run the direct tool tests without invoking the LLM:
 python -m pytest tests/test_tools.py -q
 ```
 
-## Limitations
-
-- Detection is limited to column-level signals and exact duplicate feature rows
-  across this repository's fixed split. It does not find every kind of leakage.
-- The Telco leak is planted; results do not establish performance on naturally
-  occurring leakage.
-- The supplied dataset and evaluation split are relatively small and results
-  may vary on other data.
-- The AST check is heuristic and reports suspicion only; it does not measure
-  impact or fully analyze control flow, aliases, dynamic code, or notebooks.
-- The training behavior is tied to `train_demo.py`; arbitrary notebooks and
-  custom pipelines are unsupported.
-- Gemini free-tier quota is limited. Running the agent or `bench.py` makes
-  model requests; direct tool tests do not.
